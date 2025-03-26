@@ -21,6 +21,27 @@ class LoRaWANIDS:
         self.message_history = {}  # Pour la détection des attaques par rejeu
         self.alert_threshold = 3  # Nombre d'alertes avant notification
         self.alert_window = 300   # Fenêtre de temps pour les alertes (en secondes)
+        self.authorized_gateways = {
+            "farm_gateway_001": {
+                "location": "Ferme principale",
+                "last_seen": None,
+                "status": "active"
+            }
+        }
+        
+    def is_gateway_authorized(self, gateway_id):
+        """Vérifie si une passerelle est autorisée"""
+        return gateway_id in self.authorized_gateways
+        
+    def register_gateway(self, gateway_id, location):
+        """Enregistre une nouvelle passerelle autorisée"""
+        if gateway_id not in self.authorized_gateways:
+            self.authorized_gateways[gateway_id] = {
+                "location": location,
+                "last_seen": datetime.now().isoformat(),
+                "status": "active"
+            }
+            print(f"Nouvelle passerelle enregistrée: {gateway_id} à {location}")
         
     def register_node(self, node_id):
         """Enregistre un nouveau nœud dans l'IDS"""
@@ -47,6 +68,25 @@ class LoRaWANIDS:
             if not dev_id or counter is None or not payload_raw:
                 return {'valid': False, 'reason': 'Message incomplet'}
                 
+            # Vérification des passerelles
+            if not gateways:
+                return {'valid': False, 'reason': 'Aucune passerelle dans les métadonnées'}
+                
+            for gateway in gateways:
+                gateway_id = gateway.get('gtw_id')
+                if not gateway_id:
+                    continue
+                    
+                if not self.is_gateway_authorized(gateway_id):
+                    anomalies.append({
+                        'type': 'UNAUTHORIZED_GATEWAY',
+                        'details': f'Passerelle non autorisée détectée: {gateway_id}'
+                    })
+                else:
+                    # Mise à jour du statut de la passerelle
+                    self.authorized_gateways[gateway_id]['last_seen'] = datetime.now().isoformat()
+                    self.authorized_gateways[gateway_id]['status'] = 'active'
+            
             # Vérifier si le nœud est connu
             if dev_id not in self.known_nodes:
                 self.register_node(dev_id)
@@ -199,6 +239,11 @@ class LoRaWANServer:
                 print(f"Données de capteurs reçues du nœud {message['dev_id']}:")
                 for reading in sensor_data:
                     print(f"  - {reading['type']}: {reading['value']} {reading['units']}")
+                
+                # Afficher les informations sur la passerelle
+                if message.get('metadata', {}).get('gateways'):
+                    gateway = message['metadata']['gateways'][0]
+                    print(f"  Passerelle: {gateway.get('gtw_id')} (RSSI: {gateway.get('rssi')} dBm, SNR: {gateway.get('snr')} dB)")
             except:
                 print("Format de données non-JSON, affichage brut:")
                 print(f"  Données: {data_part}")

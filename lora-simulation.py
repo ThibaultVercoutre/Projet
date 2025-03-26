@@ -88,8 +88,8 @@ class LoRaWANSimulator:
                 "coding_rate": "4/5",
                 "gateways": [{
                     "gtw_id": GATEWAY_ID,
-                    "rssi": random.randint(-120, -60),
-                    "snr": random.uniform(-5, 15)
+                    "rssi": -100,
+                    "snr": 10
                 }]
             }
         }
