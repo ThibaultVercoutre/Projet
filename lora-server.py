@@ -1,8 +1,6 @@
 import paho.mqtt.client as mqtt
 import json
 import base64
-import hmac
-import hashlib
 import time
 from datetime import datetime
 
